@@ -4,6 +4,7 @@ pub mod input;
 pub mod me;
 pub mod recorder;
 
+use std::sync::{Arc, atomic::AtomicBool};
 use std::{fs, ptr};
 
 use crate::model_description::fmi3::{Causality, ModelDescription};
@@ -32,6 +33,8 @@ pub struct SimulationSettings<'a> {
     pub log_file: Option<PathBuf>,
     pub initial_fmu_state_file: Option<PathBuf>,
     pub final_fmu_state_file: Option<PathBuf>,
+    /// Cooperative cancellation flag checked between co-simulation steps.
+    pub cancel: Option<Arc<AtomicBool>>,
 }
 
 #[derive(Debug, PartialEq)]

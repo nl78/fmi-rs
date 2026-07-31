@@ -9,9 +9,16 @@ use crate::{
     },
 };
 
+/// Fire-and-forget notification called by [`Recorder`] every time a new row is sampled.
+/// Implementations must not block; they run on the simulation thread.
+pub trait SampleObserver: Send {
+    fn on_sample(&mut self, time: f64, values: &[VariableValue]);
+}
+
 pub struct Recorder<'res, 'md> {
     pub simulation_result: &'res mut Trajectories<'md>,
     pub sizes: Vec<usize>,
+    pub observer: Option<Box<dyn SampleObserver>>,
 }
 
 impl<'res, 'md> Recorder<'res, 'md> {
@@ -19,6 +26,18 @@ impl<'res, 'md> Recorder<'res, 'md> {
         Recorder {
             simulation_result,
             sizes: vec![],
+            observer: None,
+        }
+    }
+
+    pub fn with_observer(
+        simulation_result: &'res mut Trajectories<'md>,
+        observer: Box<dyn SampleObserver>,
+    ) -> Self {
+        Recorder {
+            simulation_result,
+            sizes: vec![],
+            observer: Some(observer),
         }
     }
 
@@ -128,6 +147,10 @@ impl<'res, 'md> Recorder<'res, 'md> {
             };
 
             row.push(variable_value);
+        }
+
+        if let Some(observer) = self.observer.as_mut() {
+            observer.on_sample(time, &row);
         }
 
         self.simulation_result.rows.push(row);

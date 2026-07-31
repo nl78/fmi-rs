@@ -17,6 +17,7 @@ use crate::{
     sim::SimulationError,
 };
 
+use std::sync::{Arc, atomic::AtomicBool};
 use std::{collections::HashMap, fs, ptr};
 
 use std::path::{Path, PathBuf};
@@ -38,6 +39,8 @@ pub struct SimulationSettings<'a> {
     pub log_file: Option<PathBuf>,
     pub initial_fmu_state_file: Option<PathBuf>,
     pub final_fmu_state_file: Option<PathBuf>,
+    /// Cooperative cancellation flag checked between co-simulation steps.
+    pub cancel: Option<Arc<AtomicBool>>,
 }
 
 #[derive(Debug, PartialEq)]

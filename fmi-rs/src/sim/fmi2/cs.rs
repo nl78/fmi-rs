@@ -1,5 +1,5 @@
 use crate::{
-    fmi2::{self, CS, FMU2, types::fmi2Status},
+    fmi2::{self, CS, FMU2, log::Logger, types::fmi2Status},
     sim::{
         SimulationError,
         fmi2::{
@@ -14,6 +14,24 @@ pub fn simulate(
     settings: &SimulationSettings,
     input: Option<&StaticInput>,
     recorder: &mut Recorder,
+) -> Result<(), SimulationError> {
+    let logger: Box<dyn Logger> = if let Some(log_file) = &settings.log_file {
+        Box::new(
+            fmi2::log::DefaultLogger::from_path(log_file)
+                .map_err(SimulationError::io(&log_file))?,
+        )
+    } else {
+        Box::new(fmi2::log::DefaultLogger::default())
+    };
+
+    simulate_with_logger(settings, input, recorder, logger)
+}
+
+pub fn simulate_with_logger(
+    settings: &SimulationSettings,
+    input: Option<&StaticInput>,
+    recorder: &mut Recorder,
+    logger: Box<dyn Logger>,
 ) -> Result<(), SimulationError> {
     let start_time = settings.start_time;
     let stop_time = settings.stop_time;
@@ -34,12 +52,6 @@ pub fn simulate(
     let can_handle_variable_communication_step_size =
         co_simulation.canHandleVariableCommunicationStepSize;
 
-    let logger = if let Some(log_file) = &settings.log_file {
-        fmi2::log::DefaultLogger::from_path(log_file).map_err(SimulationError::io(&log_file))?
-    } else {
-        fmi2::log::DefaultLogger::default()
-    };
-
     let fmu = FMU2::<CS>::new(
         settings.unzipdir,
         &co_simulation.modelIdentifier,
@@ -48,7 +60,7 @@ pub fn simulate(
         false,
         settings.logging_on,
         settings.log_fmi_calls,
-        Box::new(logger),
+        logger,
         !co_simulation.canNotUseMemoryManagementFunctions,
     )?;
 
@@ -79,6 +91,13 @@ pub fn simulate(
     let mut n_steps = 0;
 
     while relative_lt(time, stop_time) {
+        if let Some(cancel) = &settings.cancel
+            && cancel.load(std::sync::atomic::Ordering::Relaxed)
+        {
+            call(fmu.terminate())?;
+            return Err(SimulationError::Cancelled);
+        }
+
         let next_regular_point = start_time + (n_steps + 1) as f64 * output_interval;
         let next_input_event_time = input.and_then(|i| i.next_event_time(time));
 

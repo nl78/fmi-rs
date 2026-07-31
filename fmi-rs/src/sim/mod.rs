@@ -60,6 +60,9 @@ pub enum SimulationError {
     #[error("Solver error: {0}")]
     Solver(String),
 
+    #[error("Simulation was cancelled by the caller")]
+    Cancelled,
+
     #[cfg(feature = "zip")]
     #[error("Failed to extract Zip archive: {0}")]
     Zip(#[from] ZipError),

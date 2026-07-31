@@ -89,6 +89,7 @@ fn test_csv_input() {
         log_file: None,
         initial_fmu_state_file: None,
         final_fmu_state_file: None,
+        cancel: None,
     };
 
     let output_variables = settings
